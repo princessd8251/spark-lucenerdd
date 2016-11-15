@@ -23,7 +23,7 @@ import org.apache.lucene.spatial.query.SpatialOperation
 import org.apache.spark.rdd.RDD
 import org.apache.spark.storage.StorageLevel
 import org.apache.spark._
-import org.apache.spark.sql.{DataFrame, Row}
+import org.apache.spark.sql.{DataFrame, Dataset, Row}
 import org.zouzias.spark.lucenerdd.config.LuceneRDDConfigurable
 import org.zouzias.spark.lucenerdd.models.SparkScoreDoc
 import org.zouzias.spark.lucenerdd.query.LuceneQueryHelpers
@@ -338,7 +338,6 @@ object ShapeLuceneRDD extends Versionable {
     new ShapeLuceneRDD[K, V](partitions)
   }
 
-  /*
   def apply[K: ClassTag, V: ClassTag](elems: Dataset[(K, V)])
                                      (implicit shapeConv: K => Shape,
                                       docConverter: V => Document)
@@ -348,7 +347,6 @@ object ShapeLuceneRDD extends Versionable {
       preservesPartitioning = true)
     new ShapeLuceneRDD[K, V](partitions)
   }
-  */
 
   /**
    * Instantiate [[ShapeLuceneRDD]] from DataFrame with spatial column (shape format)
