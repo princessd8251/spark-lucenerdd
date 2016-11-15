@@ -23,8 +23,7 @@ import org.apache.lucene.spatial.query.SpatialOperation
 import org.apache.spark.rdd.RDD
 import org.apache.spark.storage.StorageLevel
 import org.apache.spark._
-import org.apache.spark.sql.{DataFrame, Dataset, Row}
-import org.xerial.snappy.Snappy
+import org.apache.spark.sql.{DataFrame, Row}
 import org.zouzias.spark.lucenerdd.config.LuceneRDDConfigurable
 import org.zouzias.spark.lucenerdd.models.SparkScoreDoc
 import org.zouzias.spark.lucenerdd.query.LuceneQueryHelpers
@@ -85,32 +84,7 @@ class ShapeLuceneRDD[K: ClassTag, V: ClassTag]
 
   private def partitionMapper(f: AbstractShapeLuceneRDDPartition[K, V] =>
     LuceneRDDResponsePartition): LuceneRDDResponse = {
-    new LuceneRDDResponse(partitionsRDD.map(f), SparkScoreDoc.ascending)
-  }
-
-  private def linker[T: ClassTag](that: RDD[T], pointFunctor: T => PointType,
-    mapper: ( PointType, AbstractShapeLuceneRDDPartition[K, V]) =>
-                            Iterable[SparkScoreDoc]): RDD[(T, Array[SparkScoreDoc])] = {
-    logDebug("Linker requested")
-
-    val topKMonoid = new TopKMonoid[SparkScoreDoc](MaxDefaultTopKValue)(SparkScoreDoc.ascending)
-    val thatWithIndex = that.zipWithIndex().map(_.swap)
-    val queries = thatWithIndex.mapValues(pointFunctor).collect()
-    val queriesB = partitionsRDD.context.broadcast(queries)
-
-    val resultsByPart: RDD[(Long, TopK[SparkScoreDoc])] = partitionsRDD.mapPartitions {
-      case partitions =>
-        partitions.flatMap { case partition =>
-          queriesB.value.par
-            .map{ case (index, (x, y)) =>
-            (index, topKMonoid.build(mapper((x, y), partition)))
-          }
-        }
-    }
-
-    logDebug("Merge topK linkage results")
-    val results = resultsByPart.reduceByKey(topKMonoid.plus)
-    thatWithIndex.join(results).values.map(joined => (joined._1, joined._2.items.toArray))
+    new LuceneRDDResponse(partitionsRDD.map(x => f(x)), SparkScoreDoc.ascending)
   }
 
   /**
@@ -131,8 +105,23 @@ class ShapeLuceneRDD[K: ClassTag, V: ClassTag]
                            topK: Int = DefaultTopK)
   : RDD[(T, Array[SparkScoreDoc])] = {
     logInfo("linkByKnn requested")
-    linker[T](that, pointFunctor, (queryPoint, part) =>
-      part.knnSearch(queryPoint, topK, LuceneQueryHelpers.MatchAllDocsString))
+
+    val topKMonoid = new TopKMonoid[SparkScoreDoc](MaxDefaultTopKValue)(SparkScoreDoc.ascending)
+    val thatWithIndex = that.zipWithIndex().map(_.swap)
+    val queries = thatWithIndex.map(x => (x._1, pointFunctor(x._2))).collect()
+    val queriesB = partitionsRDD.context.broadcast(queries)
+
+    val resultsByPart: RDD[(Long, TopK[SparkScoreDoc])] = partitionsRDD.flatMap{ case partition =>
+      queriesB.value.par
+        .map{ case (index, qPoint) =>
+          val topKResults = partition.knnSearch(qPoint, topK, "*:*")
+          (index, topKMonoid.build(topKResults))
+        }.toIterator
+    }
+
+    logDebug("Merge topK linkage results")
+    val results = resultsByPart.reduceByKey(topKMonoid.plus)
+    thatWithIndex.join(results).values.map(joined => (joined._1, joined._2.items.toArray))
   }
 
   /**
@@ -152,8 +141,22 @@ class ShapeLuceneRDD[K: ClassTag, V: ClassTag]
     topK: Int = DefaultTopK, spatialOp: String = SpatialOperation.Intersects.getName)
   : RDD[(T, Array[SparkScoreDoc])] = {
     logInfo("linkByRadius requested")
-    linker[T](that, pointFunctor, (queryPoint, part) =>
-      part.circleSearch(queryPoint, radius, topK, spatialOp))
+    val topKMonoid = new TopKMonoid[SparkScoreDoc](MaxDefaultTopKValue)(SparkScoreDoc.ascending)
+    val thatWithIndex = that.zipWithIndex().map(_.swap)
+    val queries = thatWithIndex.map(x => (x._1, pointFunctor(x._2))).collect()
+    val queriesB = partitionsRDD.context.broadcast(queries)
+
+    val resultsByPart: RDD[(Long, TopK[SparkScoreDoc])] = partitionsRDD.flatMap{ case partition =>
+      queriesB.value.par
+        .map{ case (index, qPoint) =>
+          val topKResults = partition.circleSearch(qPoint, radius, topK, spatialOp)
+          (index, topKMonoid.build(topKResults))
+        }.toIterator
+    }
+
+    logDebug("Merge topK linkage results")
+    val results = resultsByPart.reduceByKey(topKMonoid.plus)
+    thatWithIndex.join(results).values.map(joined => (joined._1, joined._2.items.toArray))
   }
 
 
@@ -330,20 +333,22 @@ object ShapeLuceneRDD extends Versionable {
                                       docConverter: V => Document)
   : ShapeLuceneRDD[K, V] = {
     val partitions = elems.mapPartitions[AbstractShapeLuceneRDDPartition[K, V]](
-      iter => Iterator(ShapeLuceneRDDPartition[K, V](iter)),
+      iter => Iterator(new ShapeLuceneRDDPartition[K, V](iter)),
       preservesPartitioning = true)
-    new ShapeLuceneRDD(partitions)
+    new ShapeLuceneRDD[K, V](partitions)
   }
 
+  /*
   def apply[K: ClassTag, V: ClassTag](elems: Dataset[(K, V)])
                                      (implicit shapeConv: K => Shape,
                                       docConverter: V => Document)
   : ShapeLuceneRDD[K, V] = {
     val partitions = elems.rdd.mapPartitions[AbstractShapeLuceneRDDPartition[K, V]](
-      iter => Iterator(ShapeLuceneRDDPartition[K, V](iter)),
+      iter => Iterator(new ShapeLuceneRDDPartition[K, V](iter)),
       preservesPartitioning = true)
-    new ShapeLuceneRDD(partitions)
+    new ShapeLuceneRDD[K, V](partitions)
   }
+  */
 
   /**
    * Instantiate [[ShapeLuceneRDD]] from DataFrame with spatial column (shape format)
@@ -361,14 +366,15 @@ object ShapeLuceneRDD extends Versionable {
    * @param docConverter Implicit conversion for Lucene Document
    * @return
    */
+
   def apply(df : DataFrame, shapeField: String)
                                      (implicit shapeConv: String => Shape,
                                       docConverter: Row => Document)
   : ShapeLuceneRDD[String, Row] = {
     val partitions = df.rdd.map(row => (row.getString(row.fieldIndex(shapeField)), row))
       .mapPartitions[AbstractShapeLuceneRDDPartition[String, Row]](
-      iter => Iterator(ShapeLuceneRDDPartition[String, Row](iter)),
+      iter => Iterator(new ShapeLuceneRDDPartition[String, Row](iter)),
       preservesPartitioning = true)
-    new ShapeLuceneRDD(partitions)
+    new ShapeLuceneRDD[String, Row](partitions)
   }
 }

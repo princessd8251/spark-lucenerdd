@@ -77,22 +77,21 @@ class ShapeLuceneRDDImplicitsSpec extends FlatSpec
     val total = citiesDF.count()
     total > 0 should equal(true)
 
-    val shapeRDD = ShapeLuceneRDD(citiesRDD)
+    val shapeRDD = ShapeLuceneRDD(citiesRDD.rdd)
 
     shapeRDD.count > 0 should equal(true)
   }
 
   "ShapeLuceneRDDImplicits" should "implicitly convert BBOX from WKT" in {
     val sparkSession = SparkSession.builder().getOrCreate()
-    import sparkSession.implicits._
     val countriesDF = sparkSession.read.parquet("data/countries-bbox.parquet")
-    val citiesRDD = countriesDF.map(row =>
+    val citiesDS = countriesDF.rdd.map(row =>
       (row.getString(2), (row.getString(0), row.getString(1))))
 
     val total = countriesDF.count()
     total > 0 should equal(true)
 
-    val shapeRDD = ShapeLuceneRDD(citiesRDD)
+    val shapeRDD = ShapeLuceneRDD(citiesDS)
 
     shapeRDD.count > 0 should equal(true)
   }

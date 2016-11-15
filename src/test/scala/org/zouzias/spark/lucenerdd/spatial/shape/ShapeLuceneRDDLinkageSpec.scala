@@ -82,11 +82,11 @@ class ShapeLuceneRDDLinkageSpec extends FlatSpec
     val Radius = 50.0
     val sparkSession = SparkSession.builder.getOrCreate()
     import sparkSession.implicits._
-    val countriesRDD = sparkSession.read.parquet("data/countries-poly.parquet")
+    val countriesDS = sparkSession.read.parquet("data/countries-poly.parquet")
       .select("name", "shape")
       .map(row => (row.getString(1), row.getString(0)))
 
-    pointLuceneRDD = ShapeLuceneRDD(countriesRDD)
+    pointLuceneRDD = ShapeLuceneRDD(countriesDS.rdd)
     pointLuceneRDD.cache()
 
     val capitals = sparkSession.read.parquet("data/capitals.parquet")
@@ -98,7 +98,7 @@ class ShapeLuceneRDDLinkageSpec extends FlatSpec
      * @param city
      * @return
      */
-    def coords(city: (String, String)): (Double, Double) = {
+    val coords = {city : (String, String) =>
       val str = city._1
       val nums = str.dropWhile(x => x.compareTo('(') != 0).drop(1).dropRight(1)
       val coords = nums.split(" ").map(_.trim)

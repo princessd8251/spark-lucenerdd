@@ -38,8 +38,8 @@ import scala.collection.mutable.ListBuffer
  */
 object LuceneQueryHelpers extends Serializable {
 
-  lazy val MatchAllDocs = new MatchAllDocsQuery()
-  lazy val MatchAllDocsString = "*:*"
+  def MatchAllDocs: Query = new MatchAllDocsQuery()
+  val MatchAllDocsString = "*:*"
   private val QueryParserDefaultField = "text"
 
   /**
@@ -85,7 +85,7 @@ object LuceneQueryHelpers extends Serializable {
    * @return
    */
   def parseQueryString(searchString: String)
-                      (implicit analyzer: Analyzer): Query = {
+                      (analyzer: Analyzer): Query = {
     val queryParser = new QueryParser(QueryParserDefaultField, analyzer)
 
     // See http://goo.gl/L8sbrB
