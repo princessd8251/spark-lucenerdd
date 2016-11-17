@@ -33,7 +33,6 @@ import org.zouzias.spark.lucenerdd.spatial.shape.partition.{AbstractShapeLuceneR
 import org.zouzias.spark.lucenerdd.versioning.Versionable
 
 import scala.reflect.ClassTag
-import scala.util.Try
 
 /**
  * ShapeLuceneRDD for geospatial and full-text search queries
