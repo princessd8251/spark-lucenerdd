@@ -33,8 +33,6 @@ private[shape] abstract class AbstractShapeLuceneRDDPartition[K, V] extends Seri
 
   def isDefined(key: K): Boolean
 
-  def close(): Unit
-
   /**
    * Nearest neighbour search
    *
