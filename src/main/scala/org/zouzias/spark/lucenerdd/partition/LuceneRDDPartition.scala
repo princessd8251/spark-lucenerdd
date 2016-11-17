@@ -22,6 +22,7 @@ import org.apache.lucene.facet.taxonomy.directory.DirectoryTaxonomyReader
 import org.apache.lucene.index.DirectoryReader
 import org.apache.lucene.search._
 import org.joda.time.DateTime
+import org.zouzias.spark.lucenerdd.analyzers.LuceneAnalyzers
 import org.zouzias.spark.lucenerdd.facets.FacetedLuceneRDD
 import org.zouzias.spark.lucenerdd.models.{SparkFacetResult, SparkScoreDoc}
 import org.zouzias.spark.lucenerdd.query.LuceneQueryHelpers
@@ -102,7 +103,8 @@ private[lucenerdd] class LuceneRDDPartition[T]
 
   override def query(searchString: String,
                      topK: Int): LuceneRDDResponsePartition = {
-    val results = LuceneQueryHelpers.searchParser(indexSearcher, searchString, topK)(Analyzer)
+    val results = LuceneQueryHelpers.searchParser(indexSearcher,
+      searchString, topK)(LuceneAnalyzers.Analyzer)
 
     LuceneRDDResponsePartition(results.toIterator)
   }
@@ -132,7 +134,7 @@ private[lucenerdd] class LuceneRDDPartition[T]
   override def phraseQuery(fieldName: String, fieldText: String,
                            topK: Int): LuceneRDDResponsePartition = {
     val results = LuceneQueryHelpers
-      .phraseQuery(indexSearcher, fieldName, fieldText, topK)(Analyzer)
+      .phraseQuery(indexSearcher, fieldName, fieldText, topK)(LuceneAnalyzers.Analyzer)
 
     LuceneRDDResponsePartition(results.toIterator)
   }
@@ -143,7 +145,7 @@ private[lucenerdd] class LuceneRDDPartition[T]
     LuceneQueryHelpers.facetedTextSearch(indexSearcher, taxoReader, FacetsConfig,
       searchString,
       facetField + FacetedLuceneRDD.FacetTextFieldSuffix,
-      topK)(Analyzer)
+      topK)(LuceneAnalyzers.Analyzer)
   }
 }
 

@@ -24,6 +24,7 @@ import org.apache.lucene.index.DirectoryReader
 import org.apache.lucene.search.{IndexSearcher, ScoreDoc, Sort}
 import org.apache.lucene.spatial.query.{SpatialArgs, SpatialOperation}
 import org.joda.time.DateTime
+import org.zouzias.spark.lucenerdd.analyzers.LuceneAnalyzers
 import org.zouzias.spark.lucenerdd.models.SparkScoreDoc
 import org.zouzias.spark.lucenerdd.query.LuceneQueryHelpers
 import org.zouzias.spark.lucenerdd.response.LuceneRDDResponsePartition
@@ -134,7 +135,7 @@ private[shape] class ShapeLuceneRDDPartition[K, V]
     // false = ascending dist
     val distSort = new Sort(valueSource.getSortField(false)).rewrite(indexSearcher)
 
-    val query = LuceneQueryHelpers.parseQueryString(searchString)(Analyzer)
+    val query = LuceneQueryHelpers.parseQueryString(searchString)(LuceneAnalyzers.Analyzer)
     val docs = indexSearcher.search(query, k, distSort)
 
     // Here we sorted on it, and the distance will get

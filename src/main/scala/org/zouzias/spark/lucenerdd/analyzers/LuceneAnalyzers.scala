@@ -53,14 +53,14 @@ import org.zouzias.spark.lucenerdd.config.Configurable
 /**
  * Lucene Analyzer loader via configuration
  */
-trait AnalyzerConfigurable extends Configurable {
+object LuceneAnalyzers extends Configurable {
 
   private val AnalyzerConfigKey = "lucenerdd.analyzer.name"
 
-  protected val AnalyzerConfigName: Option[String] = if (config.hasPath(AnalyzerConfigKey)) {
+  private val AnalyzerConfigName: Option[String] = if (config.hasPath(AnalyzerConfigKey)) {
     Some(config.getString(AnalyzerConfigKey))} else None
 
-    protected val Analyzer: Analyzer = {
+  lazy val Analyzer: Analyzer = {
 
       if (AnalyzerConfigName.isDefined) {
         AnalyzerConfigName.get match {

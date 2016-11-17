@@ -49,7 +49,7 @@ object LuceneQueryHelpers extends Serializable {
    * @param analyzer Analyzer to utilize
    * @return
    */
-  private def analyzeTerms(text: String)(implicit analyzer: Analyzer): List[String] = {
+  private def analyzeTerms(text: String)(analyzer: Analyzer): List[String] = {
     val stream = analyzer.tokenStream(null, new StringReader(text))
     val cattr = stream.addAttribute(classOf[CharTermAttribute])
     stream.reset()
@@ -106,7 +106,7 @@ object LuceneQueryHelpers extends Serializable {
    */
   def searchParser(indexSearcher: IndexSearcher,
                    searchString: String,
-                   topK: Int)(implicit analyzer: Analyzer)
+                   topK: Int)(analyzer: Analyzer)
   : Seq[SparkScoreDoc] = {
     val q = parseQueryString(searchString)(analyzer)
     indexSearcher.search(q, topK).scoreDocs.map(SparkScoreDoc(indexSearcher, _))
@@ -127,7 +127,7 @@ object LuceneQueryHelpers extends Serializable {
                         facetsConfig: FacetsConfig,
                         searchString: String,
                         facetField: String,
-                        topK: Int)(implicit analyzer: Analyzer): SparkFacetResult = {
+                        topK: Int)(analyzer: Analyzer): SparkFacetResult = {
     // Prepare the query
     val queryParser = new QueryParser(QueryParserDefaultField, analyzer)
     val q: Query = queryParser.parse(searchString)
@@ -248,9 +248,9 @@ object LuceneQueryHelpers extends Serializable {
                   fieldName: String,
                   fieldText: String,
                   topK: Int)
-                 (implicit analyzer: Analyzer): Seq[SparkScoreDoc] = {
+                 (analyzer: Analyzer): Seq[SparkScoreDoc] = {
     val builder = new PhraseQuery.Builder()
-    val terms = analyzeTerms(fieldText)
+    val terms = analyzeTerms(fieldText)(analyzer)
     terms.foreach( token => builder.add(new Term(fieldName, token)))
     LuceneQueryHelpers.searchTopK(indexSearcher, builder.build(), topK)
   }
