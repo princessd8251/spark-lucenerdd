@@ -20,10 +20,9 @@ import org.apache.lucene.analysis.en.EnglishAnalyzer
 import org.scalatest.{BeforeAndAfterEach, FlatSpec, Matchers}
 
 class AnalyzersConfigurableSpec extends FlatSpec with Matchers
-  with BeforeAndAfterEach
-  with AnalyzerConfigurable {
+  with BeforeAndAfterEach {
 
   "AnalyzersConfigurable.Analyzer" should "be english by default" in {
-   Analyzer.isInstanceOf[EnglishAnalyzer] should equal(true)
+   LuceneAnalyzers.Analyzer.isInstanceOf[EnglishAnalyzer] should equal(true)
   }
 }

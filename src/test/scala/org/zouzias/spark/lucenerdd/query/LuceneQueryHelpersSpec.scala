@@ -23,7 +23,7 @@ import org.apache.lucene.facet.taxonomy.directory.DirectoryTaxonomyReader
 import org.apache.lucene.index.DirectoryReader
 import org.apache.lucene.search.IndexSearcher
 import org.scalatest.{BeforeAndAfterEach, FlatSpec, Matchers}
-import org.zouzias.spark.lucenerdd.LuceneRDD
+import org.zouzias.spark.lucenerdd.analyzers.LuceneAnalyzers
 import org.zouzias.spark.lucenerdd.facets.FacetedLuceneRDD
 import org.zouzias.spark.lucenerdd.store.IndexWithTaxonomyWriter
 
@@ -75,7 +75,7 @@ class LuceneQueryHelpersSpec extends FlatSpec
 
   "LuceneQueryHelpers.facetedTextSearch" should "return correct facet counts" in {
     val facets = LuceneQueryHelpers.facetedTextSearch(indexSearcher, taxoReader,
-      FacetsConfig, "*:*", TestFacetName, 100)(Analyzer)
+      FacetsConfig, "*:*", TestFacetName, 100)(LuceneAnalyzers.Analyzer)
 
     facets.facetName should equal(TestFacetName)
     facets.facets.size should equal(MaxFacetValue)
