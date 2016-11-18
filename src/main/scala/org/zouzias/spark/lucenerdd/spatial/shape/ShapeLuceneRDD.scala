@@ -110,13 +110,15 @@ class ShapeLuceneRDD[K: ClassTag, V: ClassTag]
     val queries = thatWithIndex.map(x => (x._1, pointFunctor(x._2))).collect()
     val queriesB = partitionsRDD.context.broadcast(queries)
 
-    val resultsByPart: RDD[(Long, TopK[SparkScoreDoc])] = partitionsRDD.flatMap{ case partition =>
-      queriesB.value.par
-        .map{ case (index, qPoint) =>
-          val topKResults = partition.knnSearch(qPoint, topK, "*:*")
-          (index, topKMonoid.build(topKResults))
-        }.toIterator
-    }
+    val resultsByPart: RDD[(Long, TopK[SparkScoreDoc])] = partitionsRDD.mapPartitions(partitions =>
+      partitions.flatMap { case partition =>
+        queriesB.value.par
+          .map { case (index, qPoint) =>
+            val topKResults = partition.knnSearch(qPoint, topK, "*:*")
+            (index, topKMonoid.build(topKResults))
+          }.toIterator
+      }
+    )
 
     logDebug("Merge topK linkage results")
     val results = resultsByPart.reduceByKey(topKMonoid.plus)
@@ -145,13 +147,15 @@ class ShapeLuceneRDD[K: ClassTag, V: ClassTag]
     val queries = thatWithIndex.map(x => (x._1, pointFunctor(x._2))).collect()
     val queriesB = partitionsRDD.context.broadcast(queries)
 
-    val resultsByPart: RDD[(Long, TopK[SparkScoreDoc])] = partitionsRDD.flatMap{ case partition =>
-      queriesB.value.par
-        .map{ case (index, qPoint) =>
-          val topKResults = partition.circleSearch(qPoint, radius, topK, spatialOp)
-          (index, topKMonoid.build(topKResults))
-        }.toIterator
-    }
+    val resultsByPart: RDD[(Long, TopK[SparkScoreDoc])] = partitionsRDD.mapPartitions(parts =>
+      parts.flatMap { case partition =>
+        queriesB.value
+          .map { case (index, qPoint) =>
+            val topKResults = partition.circleSearch(qPoint, radius, topK, spatialOp)
+            (index, topKMonoid.build(topKResults))
+          }.toIterator
+      }
+    )
 
     logDebug("Merge topK linkage results")
     val results = resultsByPart.reduceByKey(topKMonoid.plus)

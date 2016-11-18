@@ -60,8 +60,8 @@ object LuceneAnalyzers extends Configurable {
   private val AnalyzerConfigName: Option[String] = if (config.hasPath(AnalyzerConfigKey)) {
     Some(config.getString(AnalyzerConfigKey))} else None
 
+  @transient
   lazy val Analyzer: Analyzer = {
-
       if (AnalyzerConfigName.isDefined) {
         AnalyzerConfigName.get match {
         case "whitespace" => new WhitespaceAnalyzer()

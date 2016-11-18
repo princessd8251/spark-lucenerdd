@@ -21,6 +21,6 @@ import com.typesafe.config.ConfigFactory
 /**
  * Use typesafe configuration
  */
-trait Configurable extends Serializable {
+trait Configurable {
   val config = ConfigFactory.load()
 }

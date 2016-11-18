@@ -92,7 +92,7 @@ private[shape] class ShapeLuceneRDDPartition[K, V]
   : LuceneRDDResponsePartition = {
     logInfo(s"spatialSearch [shape:${shapeAsString} and operation:${operationName}]")
     val docs = LuceneSpatialQueryHelpers
-      .spatialSearch(shapeAsString, k, operationName) (indexSearcher)
+      .spatialSearch(shapeAsString, k, operationName)(indexSearcher)
     LuceneRDDResponsePartition(docs.toIterator)
   }
 

@@ -23,7 +23,7 @@ import com.vividsolutions.jts.geom.{Coordinate, GeometryFactory}
 import org.zouzias.spark.lucenerdd.spatial.shape.context.ContextLoader
 
 
-package object shape extends ContextLoader{
+package object shape extends ContextLoader {
 
   private val GeometryFactory = new GeometryFactory()
 
