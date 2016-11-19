@@ -63,7 +63,7 @@ private[shape] class ShapeLuceneRDDPartition[K, V]
 
   private val startTime = new DateTime(System.currentTimeMillis())
   logInfo(s"Indexing process initiated at ${startTime}...")
-  iterIndex.foreach { case (key, value) =>
+  iterIndex.toSeq.par.foreach { case (key, value) =>
     // (implicitly) convert type K to Shape and V to a Lucene document
     val doc = docConversion(value)
     val shape = shapeConversion(key)

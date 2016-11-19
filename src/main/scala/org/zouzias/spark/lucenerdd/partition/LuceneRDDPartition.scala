@@ -43,7 +43,7 @@ private[lucenerdd] class LuceneRDDPartition[T]
 
   private val startTime = new DateTime(System.currentTimeMillis())
   logInfo(s"Indexing process initiated at ${startTime}...")
-  iterIndex.foreach { case elem =>
+  iterIndex.toSeq.par.foreach { case elem =>
     // (implicitly) convert type T to Lucene document
     val doc = docConversion(elem)
     indexWriter.addDocument(FacetsConfig.build(taxoWriter, doc))
