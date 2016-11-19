@@ -34,16 +34,6 @@ private[shape] abstract class AbstractShapeLuceneRDDPartition[K, V] extends Seri
   def isDefined(key: K): Boolean
 
   /**
-   * Nearest neighbour search
-   *
-   * @param point query point
-   * @param k number of neighbors to return
-   * @param searchString Lucene Query string
-   * @return
-   */
-  def knnSearch(point: PointType, k: Int, searchString: String): LuceneRDDResponsePartition
-
-  /**
    * Search for points within a circle
    *
    * @param center center of circle
@@ -52,52 +42,6 @@ private[shape] abstract class AbstractShapeLuceneRDDPartition[K, V] extends Seri
    * @return
    */
   def circleSearch(center: PointType, radius: Double, k: Int, operationName: String)
-  : LuceneRDDResponsePartition
-
-  /**
-   * Spatial search with arbitrary shape
-   *
-   * @param shapeAsString Shape object represented as String
-   * @param k Number of results to return
-   * @param operationName Operation name, i.e., intersect, within, etc
-   * @return
-   */
-  def spatialSearch(shapeAsString: String, k: Int, operationName: String)
-  : LuceneRDDResponsePartition
-
-  /**
-   * Spatial search with point
-   *
-   * @param point Query point
-   * @param k Number of result to return
-   * @param operationName Operation name, i.e., intersect, within, etc
-   * @return
-   */
-  def spatialSearch(point: PointType, k: Int, operationName: String)
-  : LuceneRDDResponsePartition
-
-  /**
-   * Bounding box search with point and radius
-   *
-   * @param center given as (x, y)
-   * @param radius distance from center in kilometers (KM)
-   * @param k Number of results to return
-   * @param operationName Operation name, i.e., intersect, within, etc
-   * @return
-   */
-  def bboxSearch(center: PointType, radius: Double, k: Int, operationName: String)
-  : LuceneRDDResponsePartition
-
-  /**
-   * Bounding box search with lower left and upper right corners
-   *
-   * @param lowerLeft Lower left point
-   * @param upperRight Upper left point
-   * @param k Number of results
-   * @param operationName Operation name, i.e., intersect, within, etc
-   * @return
-   */
-  def bboxSearch(lowerLeft: PointType, upperRight: PointType, k: Int, operationName: String)
   : LuceneRDDResponsePartition
 
   /**

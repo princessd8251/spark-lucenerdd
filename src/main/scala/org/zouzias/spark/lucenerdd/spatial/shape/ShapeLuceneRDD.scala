@@ -81,49 +81,6 @@ class ShapeLuceneRDD[K: ClassTag, V: ClassTag]
 
   setName("ShapeLuceneRDD")
 
-  private def partitionMapper(f: AbstractShapeLuceneRDDPartition[K, V] =>
-    LuceneRDDResponsePartition): LuceneRDDResponse = {
-    new LuceneRDDResponse(partitionsRDD.map(x => f(x)), SparkScoreDoc.ascending)
-  }
-
-  /**
-   * Link entities based on k-nearest neighbors (Knn)
-   *
-   * Links this and that based on nearest neighbors, returns Knn
-   *
-   *
-   * @param that An RDD of entities to be linked
-   * @param pointFunctor Function that generates a point from each element of other
-   * @tparam T A type
-   * @return an RDD of Tuple2 that contains the linked results
-   *
-   * Note: Currently the query coordinates of the other RDD are collected to the driver and
-   * broadcast to the workers.
-   */
-  def linkByKnn[T: ClassTag](that: RDD[T], pointFunctor: T => PointType,
-                           topK: Int = DefaultTopK)
-  : RDD[(T, Array[SparkScoreDoc])] = {
-    logInfo("linkByKnn requested")
-
-    val topKMonoid = new TopKMonoid[SparkScoreDoc](MaxDefaultTopKValue)(SparkScoreDoc.ascending)
-    val thatWithIndex = that.zipWithIndex().map(_.swap)
-    val queries = thatWithIndex.map(x => (x._1, pointFunctor(x._2))).collect()
-    val queriesB = partitionsRDD.context.broadcast(queries)
-
-    val resultsByPart: RDD[(Long, TopK[SparkScoreDoc])] = partitionsRDD.mapPartitions(partitions =>
-      partitions.flatMap { case partition =>
-        queriesB.value.par
-          .map { case (index, qPoint) =>
-            val topKResults = partition.knnSearch(qPoint, topK, "*:*")
-            (index, topKMonoid.build(topKResults))
-          }.toIterator
-      }
-    )
-
-    logDebug("Merge topK linkage results")
-    val results = resultsByPart.reduceByKey(topKMonoid.plus)
-    thatWithIndex.join(results).values.map(joined => (joined._1, joined._2.items.toArray))
-  }
 
   /**
    * Link entities if their shapes are within a distance in kilometers (km)
@@ -147,15 +104,12 @@ class ShapeLuceneRDD[K: ClassTag, V: ClassTag]
     val queries = thatWithIndex.map(x => (x._1, pointFunctor(x._2))).collect()
     val queriesB = partitionsRDD.context.broadcast(queries)
 
-    val resultsByPart: RDD[(Long, TopK[SparkScoreDoc])] = partitionsRDD.mapPartitions(parts =>
-      parts.flatMap { case partition =>
-        queriesB.value
-          .map { case (index, qPoint) =>
-            val topKResults = partition.circleSearch(qPoint, radius, topK, spatialOp)
-            (index, topKMonoid.build(topKResults))
-          }.toIterator
+    val resultsByPart: RDD[(Long, TopK[SparkScoreDoc])] = partitionsRDD.flatMap { case part =>
+      val ok = queriesB.value
+      ok.map { case (index, qPoint) =>
+        (index, topKMonoid.build(part.circleSearch(qPoint, radius, topK, spatialOp)))
       }
-    )
+    }
 
     logDebug("Merge topK linkage results")
     val results = resultsByPart.reduceByKey(topKMonoid.plus)
@@ -163,135 +117,6 @@ class ShapeLuceneRDD[K: ClassTag, V: ClassTag]
   }
 
 
-  /**
-   * Link with DataFrame based on k-nearest neighbors (Knn)
-   *
-   * Links this and that based on nearest neighbors, returns Knn
-   *
-   *
-   * @param other
-   * @param searchQueryGen
-   * @param topK
-   * @return
-   */
-  def linkDataFrameByKnn(other: DataFrame, searchQueryGen: Row => PointType,
-                         topK: Int = DefaultTopK)
-  : RDD[(Row, Array[SparkScoreDoc])] = {
-    logInfo("linkDataFrameByKnn requested")
-    linkByKnn[Row](other.rdd, searchQueryGen, topK)
-  }
-
-  /**
-   * Link entities if their shapes are within a distance in kilometers (km)
-   *
-   * Links this and that based on distance threshold
-   *
-   * @param other DataFrame of entities to be linked
-   * @param pointFunctor Function that generates a point from each element of other
-   * @return an RDD of Tuple2 that contains the linked results
-   *
-   * Note: Currently the query coordinates of the other RDD are collected to the driver and
-   * broadcast to the workers.
-   */
-  def linkDataFrameByRadius(other: DataFrame, pointFunctor: Row => PointType,
-                            radius: Double, topK: Int = DefaultTopK,
-                            spatialOp: String = SpatialOperation.Intersects.getName)
-  : RDD[(Row, Array[SparkScoreDoc])] = {
-    logInfo("linkDataFrameByRadius requested")
-    linkByRadius[Row](other.rdd, pointFunctor, radius, topK, spatialOp)
-  }
-
-  /**
-   * K-nearest neighbors search
-   *
-   * @param queryPoint query point (X, Y)
-   * @param k number of nearest neighbor points to return
-   * @param searchString Lucene query string
-   * @return
-   */
-  def knnSearch(queryPoint: PointType, k: Int,
-                searchString: String = LuceneQueryHelpers.MatchAllDocsString)
-  : LuceneRDDResponse = {
-    logInfo(s"Knn search with query ${queryPoint} and search string ${searchString}")
-    partitionMapper(_.knnSearch(queryPoint, k, searchString))
-  }
-
-  /**
-   * Search for points within a circle
-   *
-   * @param center center of circle
-   * @param radius radius of circle in kilometers (KM)
-   * @param k number of points to return
-   * @return
-   */
-  def circleSearch(center: PointType, radius: Double, k: Int)
-  : LuceneRDDResponse = {
-    logInfo(s"Circle search with center ${center} and radius ${radius}")
-    // Points can only intersect
-    partitionMapper(_.circleSearch(center, radius, k,
-      SpatialOperation.Intersects.getName))
-  }
-
-  /**
-   * Spatial search with arbitrary shape
-   *
-   * @param shapeWKT Shape in WKT format
-   * @param k Number of element to return
-   * @param operationName
-   * @return
-   */
-  def spatialSearch(shapeWKT: String, k: Int,
-                    operationName: String = SpatialOperation.Intersects.getName)
-  : LuceneRDDResponse = {
-    logInfo(s"Spatial search with shape ${shapeWKT} and operation ${operationName}")
-    partitionMapper(_.spatialSearch(shapeWKT, k, operationName))
-  }
-
-  /**
-   * Spatial search with a single Point
-   *
-   * @param point
-   * @param k
-   * @param operationName
-   * @return
-   */
-  def spatialSearch(point: PointType, k: Int,
-                    operationName: String)
-  : LuceneRDDResponse = {
-    logInfo(s"Spatial search with point ${point} and operation ${operationName}")
-    partitionMapper(_.spatialSearch(point, k, operationName))
-  }
-
-  /**
-   * Bounding box search with center and radius
-   *
-   * @param center given as (x, y)
-   * @param radius in kilometers (KM)
-   * @param k
-   * @param operationName
-   * @return
-   */
-  def bboxSearch(center: PointType, radius: Double, k: Int,
-                    operationName: String = SpatialOperation.Intersects.getName)
-  : LuceneRDDResponse = {
-    logInfo(s"Bounding box with center ${center}, radius ${radius}, k = ${k}")
-    partitionMapper(_.bboxSearch(center, radius, k, operationName))
-  }
-
-  /**
-   * Bounding box search with rectangle
-   * @param lowerLeft Lower left corner
-   * @param upperRight Upper right corner
-   * @param k Number of results
-   * @param operationName Intersect, contained, etc.
-   * @return
-   */
-  def bboxSearch(lowerLeft: PointType, upperRight: PointType, k: Int,
-                 operationName: String)
-  : LuceneRDDResponse = {
-    logInfo(s"Bounding box with lower left ${lowerLeft}, upper right ${upperRight} and k = ${k}")
-    partitionMapper(_.bboxSearch(lowerLeft, upperRight, k, operationName))
-  }
 
   override def count(): Long = {
     logInfo("Count requested")

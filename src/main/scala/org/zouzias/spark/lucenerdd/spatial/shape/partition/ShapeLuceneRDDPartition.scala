@@ -36,7 +36,8 @@ private[shape] class ShapeLuceneRDDPartition[K, V]
    docConversion: V => Document)
   extends AbstractShapeLuceneRDDPartition[K, V] with IndexWithTaxonomyWriter {
 
-  private val (iterOriginal, iterIndex) = iter.duplicate
+  @transient
+  private lazy val (iterOriginal, iterIndex) = iter.duplicate
 
   private val startTime = new DateTime(System.currentTimeMillis())
   logInfo(s"Indexing process initiated at ${startTime}...")
@@ -54,8 +55,8 @@ private[shape] class ShapeLuceneRDDPartition[K, V]
   // Close the indexWriter and taxonomyWriter (for faceted search)
   closeAllWriters()
 
-  private val indexReader = DirectoryReader.open(IndexDir)
-  private val indexSearcher = new IndexSearcher(indexReader)
+  private lazy val indexReader = DirectoryReader.open(IndexDir)
+  private lazy val indexSearcher = new IndexSearcher(indexReader)
 
   override def size: Long = iterOriginal.size.toLong
 
@@ -79,39 +80,6 @@ private[shape] class ShapeLuceneRDDPartition[K, V]
     val docs = LuceneSpatialQueryHelpers
       .circleSearch(center, radius, k, operationName)(indexSearcher)
     LuceneRDDResponsePartition(docs)
-  }
-
-  override def knnSearch(point: PointType, k: Int, searchString: String)
-  : LuceneRDDResponsePartition = {
-    logInfo(s"knnSearch [center:${point}, searchQuery:${searchString}]")
-    val docs = LuceneSpatialQueryHelpers.knnSearch(point, k, searchString)(indexSearcher)
-    LuceneRDDResponsePartition(docs)
-  }
-
-  override def spatialSearch(shapeAsString: String, k: Int, operationName: String)
-  : LuceneRDDResponsePartition = {
-    logInfo(s"spatialSearch [shape:${shapeAsString} and operation:${operationName}]")
-    val docs = LuceneSpatialQueryHelpers
-      .spatialSearch(shapeAsString, k, operationName)(indexSearcher)
-    LuceneRDDResponsePartition(docs.toIterator)
-  }
-
-  override def spatialSearch(point: PointType, k: Int, operationName: String)
-  : LuceneRDDResponsePartition = {
-    val docs = LuceneSpatialQueryHelpers.spatialSearch(point, k, operationName)(indexSearcher)
-    LuceneRDDResponsePartition(docs.toIterator)
-  }
-
-  override def bboxSearch(center: PointType, radius: Double, k: Int, operationName: String)
-  : LuceneRDDResponsePartition = {
-    val docs = LuceneSpatialQueryHelpers.bboxSearch(center, radius, k, operationName)(indexSearcher)
-    LuceneRDDResponsePartition(docs.toIterator)
-  }
-
-  override def bboxSearch(lowerLeft: PointType, upperRight: PointType, k: Int, opName: String)
-  : LuceneRDDResponsePartition = {
-    val docs = LuceneSpatialQueryHelpers.bboxSearch(lowerLeft, upperRight, k, opName)(indexSearcher)
-    LuceneRDDResponsePartition(docs.toIterator)
   }
 }
 
