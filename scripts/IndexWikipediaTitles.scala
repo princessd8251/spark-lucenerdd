@@ -18,7 +18,7 @@
 import scala.io.Source
 import org.zouzias.spark.lucenerdd._
 import org.zouzias.spark.lucenerdd.LuceneRDD
-val wiki= spark.read.parquet("/Users/taazoan3/recordLinkageData/wikipedia/enwiki-latest-all-titles.parquet")
+val wiki= spark.read.parquet("recordLinkageData/wikipedia/enwiki-latest-all-titles.parquet")
 
 sc.setLogLevel("DEBUG")
 
