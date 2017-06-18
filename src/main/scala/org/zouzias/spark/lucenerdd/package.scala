@@ -116,13 +116,16 @@ package object lucenerdd extends LuceneRDDConfigurable {
    * @tparam T
    * @return
    */
-  implicit def productTypeToDocument[T <: Product : ClassTag](s: T): Document = {
+  implicit def productTypeToDocument[T <: Product : ClassTag, Y: ClassTag](s: T): Document = {
     val doc = new Document
 
     val fieldNames = s.getClass.getDeclaredFields.map(_.getName).toIterator
     val fieldValues = s.productIterator
     fieldValues.zip(fieldNames).foreach{ case (elem, fieldName) =>
-      typeToDocument(doc, fieldName, elem)
+      elem match {
+        case iter: Iterable[Y] => iter.foreach(item => typeToDocument[Y](doc, fieldName, item))
+        case _ => typeToDocument(doc, fieldName, elem)
+      }
     }
 
     doc
